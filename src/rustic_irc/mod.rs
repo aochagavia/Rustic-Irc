@@ -11,6 +11,19 @@ pub struct IrcConn {
     buffer: [u8, ..4096],
 }
 
+impl Clone for IrcConn {
+    fn clone(&self) -> IrcConn {
+        IrcConn {
+            nick: self.nick.clone(),
+            channel: self.channel.clone(),
+            stream: self.stream.clone(),
+            
+            // We don't need to clone the buffer
+            buffer: [0 as u8, ..4096],
+        }
+    }
+}
+
 impl IrcConn {
     // Returns an IrcConn wrapped in an IoResult.
     pub fn new(hostname: &str, channel: ~str, nick: ~str) -> IoResult<IrcConn> {
