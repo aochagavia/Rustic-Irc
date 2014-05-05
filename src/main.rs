@@ -8,10 +8,13 @@ fn main() {
     let irc = IrcConn::new("irc.something.org", "#channel".to_owned(), "Nobody".to_owned());
     let mut irc = irc.ok().expect("Unexpected error");
     
-    // We clone two times... It is the only way to satisfy the compiler
     // The underlying stream remains the same
-    let mut cloned_irc = irc.clone();
-    spawn(proc() handle_input(&mut cloned_irc.clone()));
+    let cloned_irc = irc.clone();
+    spawn(proc() {
+        // We need first to capture the object. Then we can use it.
+        let mut captured_irc = cloned_irc;
+        handle_input(&mut captured_irc)
+    });
     
     // Send what you write as a message
     let mut reader = BufferedReader::new(io::stdin());
