@@ -1,6 +1,5 @@
 use std::io::IoResult;
 use std::io::net::tcp::TcpStream;
-use std::io::net::ip::SocketAddr;
 use std::io::net::addrinfo;
 use std::str;
 
@@ -27,8 +26,9 @@ impl Clone for IrcConn {
 impl IrcConn {
     // Returns an IrcConn wrapped in an IoResult.
     pub fn new(hostname: &str, channel: ~str, nick: ~str) -> IoResult<IrcConn> {
-        let ip = try!(addrinfo::get_host_addresses(hostname))[0];
-        let stream = try!(TcpStream::connect(SocketAddr { ip: ip, port: 6667 }));
+        let ips = try!(addrinfo::get_host_addresses(hostname));
+        let ip = ips.get(0);
+        let stream = try!(TcpStream::connect(ip.to_str(), 6667));
         
         let mut irc_conn = IrcConn { nick: nick, channel: channel, stream: stream, buffer: [0, ..4096] };
         
@@ -58,6 +58,7 @@ impl IrcConn {
     }
     
     // Returns a Result containing the string sent by the server
+    // Will also respond any ping message automatically
     pub fn receive_message(&mut self) -> IoResult<~str> {
         // Receive the message
         let amount = try!(self.stream.read(self.buffer.as_mut_slice()));
