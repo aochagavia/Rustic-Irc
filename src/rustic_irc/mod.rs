@@ -4,8 +4,8 @@ use std::io::net::addrinfo;
 use std::str;
 
 pub struct IrcConn {
-    nick: ~str,
-    channel: ~str,
+    nick: String,
+    channel: String,
     stream: TcpStream,
     buffer: [u8, ..4096],
 }
@@ -17,7 +17,7 @@ impl Clone for IrcConn {
             channel: self.channel.clone(),
             stream: self.stream.clone(),
             
-            // We don't need to clone the buffer
+            // We don't need to clone the buffer, we will just use an empty one
             buffer: [0 as u8, ..4096],
         }
     }
@@ -25,17 +25,17 @@ impl Clone for IrcConn {
 
 impl IrcConn {
     // Returns an IrcConn wrapped in an IoResult.
-    pub fn new(hostname: &str, channel: ~str, nick: ~str) -> IoResult<IrcConn> {
+    pub fn new(hostname: &str, channel: String, nick: String) -> IoResult<IrcConn> {
         let ips = try!(addrinfo::get_host_addresses(hostname));
         let ip = ips.get(0);
-        let stream = try!(TcpStream::connect(ip.to_str(), 6667));
+        let stream = try!(TcpStream::connect(ip.to_str().as_slice(), 6667));
         
         let mut irc_conn = IrcConn { nick: nick, channel: channel, stream: stream, buffer: [0, ..4096] };
         
         // Set nick and user
         let nick = irc_conn.nick.clone(); // To satisfy the compiler
-        try!(irc_conn.send(format!("NICK {}\r\n", nick)));
-        try!(irc_conn.send(format!("USER {0} {0} {0} :{1}\r\n", nick, hostname)));
+        try!(irc_conn.send(format!("NICK {}\r\n", nick).as_slice()));
+        try!(irc_conn.send(format!("USER {0} {0} {0} :{1}\r\n", nick, hostname).as_slice()));
         
         // Discard default welcome message
         try!(irc_conn.receive_message());
@@ -51,23 +51,23 @@ impl IrcConn {
     }
     
     // Join a channel on the current server
-    pub fn join_channel(&mut self, channel: ~str) -> IoResult<()> {
+    pub fn join_channel(&mut self, channel: String) -> IoResult<()> {
         self.channel = channel;
         let chan = self.channel.clone(); // To satisfy the compiler
-        self.send(format!("JOIN {}\r\n", chan))
+        self.send(format!("JOIN {}\r\n", chan).as_slice())
     }
     
     // Returns a Result containing the string sent by the server
     // Will also respond any ping message automatically
-    pub fn receive_message(&mut self) -> IoResult<~str> {
+    pub fn receive_message(&mut self) -> IoResult<String> {
         // Receive the message
         let amount = try!(self.stream.read(self.buffer.as_mut_slice()));
-        let message = str::from_utf8_lossy(self.buffer.mut_slice(0, amount)).into_owned();
+        let message = str::from_utf8_lossy(self.buffer.mut_slice(0, amount)).to_string();
         
         println!("{} bytes received!", amount);
         
         // Detect and respond to possible PINGs
-        try!(self.respond_pings(message));
+        try!(self.respond_pings(message.as_slice()));
         
         Ok(message)
     }
@@ -75,7 +75,7 @@ impl IrcConn {
     // Send a message to the current channel
     pub fn send_message(&mut self, msg: &str) -> IoResult<()> {
         let chan = self.channel.clone(); // To satisfy the compiler
-        self.send(format!("PRIVMSG {} :{}\r\n", chan, msg))
+        self.send(format!("PRIVMSG {} :{}\r\n", chan, msg).as_slice())
     }
     
     // Send a command to the server, without any special formatting
@@ -90,7 +90,7 @@ impl IrcConn {
             match (words.next(), words.next()) {
                 (Some(w1), Some(pong_key)) if w1 == "PING" => {
                     println!("Ping received, pong answered");
-                    return self.send(format!("PONG {}\r\n", pong_key));
+                    return self.send(format!("PONG {}\r\n", pong_key).as_slice());
                 }
                 _ => { return Ok(()); }
             }
